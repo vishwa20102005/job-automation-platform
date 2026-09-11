@@ -2,7 +2,7 @@ ALTER TABLE applications
     ADD COLUMN IF NOT EXISTS resume_id INTEGER REFERENCES resumes(id),
     ADD COLUMN IF NOT EXISTS match_score DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS matched_skills JSONB,
-    ADD COLUMN IF NOT EXISTS missing_skills TEXT,
+    ADD COLUMN IF NOT EXISTS missing_skills JSONB,
     ADD COLUMN IF NOT EXISTS recommendation TEXT,
     ADD COLUMN IF NOT EXISTS source VARCHAR(100),
     ADD COLUMN IF NOT EXISTS match_category VARCHAR(50),

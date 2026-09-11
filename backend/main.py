@@ -63,12 +63,55 @@ from datetime import datetime, timezone
 
 
 # =========================================================
-# CREATE DATABASE TABLES
+# CREATE DATABASE TABLES + SAFE SCHEMA MIGRATION
 # =========================================================
 
 Base.metadata.create_all(
     bind=engine
 )
+
+
+def migrate_application_columns():
+    """Add columns required by the current Application model.
+
+    This is intentionally idempotent so Render can run it safely on every
+    deployment/startup. It updates an existing applications table without
+    deleting existing data.
+    """
+    migration_sql = """
+    ALTER TABLE applications
+        ADD COLUMN IF NOT EXISTS resume_id INTEGER REFERENCES resumes(id),
+        ADD COLUMN IF NOT EXISTS match_score DOUBLE PRECISION,
+        ADD COLUMN IF NOT EXISTS matched_skills JSONB,
+        ADD COLUMN IF NOT EXISTS missing_skills JSONB,
+        ADD COLUMN IF NOT EXISTS recommendation TEXT,
+        ADD COLUMN IF NOT EXISTS source VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS match_category VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS application_priority VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS customized_resume TEXT,
+        ADD COLUMN IF NOT EXISTS cover_letter TEXT,
+        ADD COLUMN IF NOT EXISTS recruiter_message TEXT,
+        ADD COLUMN IF NOT EXISTS application_status VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS application_stage VARCHAR(100);
+
+    UPDATE applications
+    SET application_status = COALESCE(application_status, status),
+        application_stage = COALESCE(application_stage, 'LEGACY_APPLICATION')
+    WHERE application_status IS NULL
+       OR application_stage IS NULL;
+    """
+
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(migration_sql)
+    except Exception as exc:
+        # Fail startup instead of allowing the API to run with a broken schema.
+        raise RuntimeError(
+            f"Database schema migration failed: {exc}"
+        ) from exc
+
+
+migrate_application_columns()
 
 
 # =========================================================
