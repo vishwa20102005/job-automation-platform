@@ -911,11 +911,9 @@ def match_job_with_resume(
     job_text = " ".join(filter(None, [job.title, job.company, job.location, job.description, job.skills]))
     result = calculate_match_score(resume.extracted_text, job_text)
     return {
-        "job_id": job.id,
-        "resume_id": resume.id,
-        "match_score": result["score"],
-        "matched_skills": result["matched_keywords"],
-        "missing_skills": result["missing_keywords"],
-        "recommendation": result["match_level"]
-    }
+    "score": result["score"],
+    "matched_keywords": result["matched_keywords"],
+    "missing_keywords": result["missing_keywords"],
+    "recommendation": result["recommendation"]
+}
 
