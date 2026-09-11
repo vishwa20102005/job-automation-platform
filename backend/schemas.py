@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from typing import Any
 from datetime import datetime
 
 
@@ -79,6 +80,19 @@ class JobResponse(BaseModel):
 class ApplicationCreate(BaseModel):
 
     job_id: int
+    resume_id: int | None = None
+    match_score: float | None = None
+    matched_skills: list[str] | None = None
+    missing_skills: list[str] | None = None
+    recommendation: str | None = None
+    source: str | None = None
+    match_category: str | None = None
+    application_priority: str | None = None
+    customized_resume: str | None = None
+    cover_letter: str | None = None
+    recruiter_message: str | None = None
+    application_status: str | None = None
+    application_stage: str | None = None
 
 
 class ApplicationStatusUpdate(BaseModel):
@@ -89,15 +103,23 @@ class ApplicationStatusUpdate(BaseModel):
 class ApplicationResponse(BaseModel):
 
     id: int
-
     user_id: int
-
     job_id: int
-
     status: str
-
+    resume_id: int | None = None
+    match_score: float | None = None
+    matched_skills: list[str] | None = None
+    missing_skills: list[str] | None = None
+    recommendation: str | None = None
+    source: str | None = None
+    match_category: str | None = None
+    application_priority: str | None = None
+    customized_resume: str | None = None
+    cover_letter: str | None = None
+    recruiter_message: str | None = None
+    application_status: str | None = None
+    application_stage: str | None = None
     applied_at: datetime
-
     updated_at: datetime
 
     class Config:

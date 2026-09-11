@@ -404,55 +404,55 @@ def delete_job(
 def create_application(
     application: ApplicationCreate,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
+    current_user_id: int = Depends(get_current_user)
 ):
 
-    job = (
-        db.query(Job)
-        .filter(
-            Job.id == application.job_id,
-            Job.user_id == current_user_id
-        )
-        .first()
-    )
+    job = db.query(Job).filter(
+        Job.id == application.job_id,
+        Job.user_id == current_user_id
+    ).first()
 
     if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
 
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found"
-        )
-
-    existing_application = (
-        db.query(Application)
-        .filter(
-            Application.user_id == current_user_id,
-            Application.job_id == application.job_id
-        )
-        .first()
-    )
+    existing_application = db.query(Application).filter(
+        Application.user_id == current_user_id,
+        Application.job_id == application.job_id
+    ).first()
 
     if existing_application:
+        raise HTTPException(status_code=400, detail="You have already applied to this job")
 
-        raise HTTPException(
-            status_code=400,
-            detail="You have already applied to this job"
-        )
+    if application.resume_id is not None:
+        resume = db.query(Resume).filter(
+            Resume.id == application.resume_id,
+            Resume.user_id == current_user_id
+        ).first()
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
 
     new_application = Application(
         user_id=current_user_id,
         job_id=application.job_id,
-        status="APPLIED"
+        status=application.application_status or "READY_FOR_REVIEW",
+        resume_id=application.resume_id,
+        match_score=application.match_score,
+        matched_skills=application.matched_skills,
+        missing_skills=application.missing_skills,
+        recommendation=application.recommendation,
+        source=application.source,
+        match_category=application.match_category,
+        application_priority=application.application_priority,
+        customized_resume=application.customized_resume,
+        cover_letter=application.cover_letter,
+        recruiter_message=application.recruiter_message,
+        application_status=application.application_status or "READY_FOR_REVIEW",
+        application_stage=application.application_stage or "AI_MATERIALS_GENERATED"
     )
 
     db.add(new_application)
-
     db.commit()
-
     db.refresh(new_application)
-
     return new_application
 
 
@@ -460,99 +460,41 @@ def create_application(
 # GET APPLICATIONS
 # =========================================================
 
-@app.get(
-    "/applications",
-    response_model=list[ApplicationResponse]
-)
+@app.get("/applications", response_model=list[ApplicationResponse])
 def get_applications(
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
+    current_user_id: int = Depends(get_current_user)
 ):
-
-    applications = (
-        db.query(Application)
-        .filter(
-            Application.user_id == current_user_id
-        )
-        .order_by(
-            Application.id.desc()
-        )
-        .all()
-    )
-
-    return applications
+    return db.query(Application).filter(
+        Application.user_id == current_user_id
+    ).order_by(Application.id.desc()).all()
 
 
 # =========================================================
 # UPDATE APPLICATION STATUS
 # =========================================================
 
-@app.put(
-    "/applications/{application_id}",
-    response_model=ApplicationResponse
-)
+@app.put("/applications/{application_id}", response_model=ApplicationResponse)
 def update_application_status(
     application_id: int,
     status_data: ApplicationStatusUpdate,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
+    current_user_id: int = Depends(get_current_user)
 ):
-
-    allowed_statuses = {
-        "APPLIED",
-        "SHORTLISTED",
-        "INTERVIEW",
-        "REJECTED",
-        "SELECTED"
-    }
-
-    new_status = (
-        status_data.status
-        .upper()
-        .strip()
-    )
-
+    allowed_statuses = {"READY_FOR_REVIEW", "APPLIED", "SHORTLISTED", "INTERVIEW", "REJECTED", "SELECTED"}
+    new_status = status_data.status.upper().strip()
     if new_status not in allowed_statuses:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Invalid status. Allowed values: "
-                "APPLIED, SHORTLISTED, INTERVIEW, "
-                "REJECTED, SELECTED"
-            )
-        )
-
-    application = (
-        db.query(Application)
-        .filter(
-            Application.id == application_id,
-            Application.user_id == current_user_id
-        )
-        .first()
-    )
-
+        raise HTTPException(status_code=400, detail="Invalid status. Allowed values: APPLIED, SHORTLISTED, INTERVIEW, REJECTED, SELECTED")
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.user_id == current_user_id
+    ).first()
     if not application:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Application not found"
-        )
-
+        raise HTTPException(status_code=404, detail="Application not found")
     application.status = new_status
-
-    application.updated_at = datetime.now(
-        timezone.utc
-    )
-
+    application.updated_at = datetime.now(timezone.utc)
     db.commit()
-
     db.refresh(application)
-
     return application
 
 
@@ -560,41 +502,21 @@ def update_application_status(
 # DELETE APPLICATION
 # =========================================================
 
-@app.delete(
-    "/applications/{application_id}"
-)
+@app.delete("/applications/{application_id}")
 def delete_application(
     application_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
+    current_user_id: int = Depends(get_current_user)
 ):
-
-    application = (
-        db.query(Application)
-        .filter(
-            Application.id == application_id,
-            Application.user_id == current_user_id
-        )
-        .first()
-    )
-
+    application = db.query(Application).filter(
+        Application.id == application_id,
+        Application.user_id == current_user_id
+    ).first()
     if not application:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Application not found"
-        )
-
+        raise HTTPException(status_code=404, detail="Application not found")
     db.delete(application)
-
     db.commit()
-
-    return {
-        "message": "Application deleted successfully",
-        "application_id": application_id
-    }
+    return {"message": "Application deleted successfully", "application_id": application_id}
 
 
 # =========================================================
@@ -918,238 +840,39 @@ def delete_resume(
 # AI JOB MATCHING
 # =========================================================
 
-@app.get(
-    "/jobs/{job_id}/match",
-    response_model=JobMatchResponse
-)
-def match_job_with_resume(
-    job_id: int,
-    db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
-):
-
-    # -----------------------------------------------------
-    # Find job belonging to current user
-    # -----------------------------------------------------
-
-    job = (
-        db.query(Job)
-        .filter(
-            Job.id == job_id,
-            Job.user_id == current_user_id
-        )
-        .first()
-    )
-
-    if not job:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found"
-        )
-
-    # -----------------------------------------------------
-    # Find latest resume belonging to current user
-    # -----------------------------------------------------
-
-    resume = (
-        db.query(Resume)
-        .filter(
-            Resume.user_id == current_user_id
-        )
-        .order_by(
-            Resume.id.desc()
-        )
-        .first()
-    )
-
-    if not resume:
-
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "No resume found. "
-                "Please upload a resume first."
-            )
-        )
-
-    # -----------------------------------------------------
-    # Check extracted resume text
-    # -----------------------------------------------------
-
-    if not resume.extracted_text:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Resume text is empty. "
-                "Please upload the resume again."
-            )
-        )
-
-    # -----------------------------------------------------
-    # Build job text
-    # -----------------------------------------------------
-
-    job_text_parts = [
-        job.title or "",
-        job.company or "",
-        job.location or "",
-        job.description or "",
-        job.skills or ""
-    ]
-
-    job_text = " ".join(
-        job_text_parts
-    )
-
-    # -----------------------------------------------------
-    # AI matching
-    # -----------------------------------------------------
-
-    result = calculate_match(
-        resume_text=resume.extracted_text,
-        job_text=job_text
-    )
-
-    # -----------------------------------------------------
-    # Return result
-    # -----------------------------------------------------
-
-    return {
-        "job_id": job.id,
-        "resume_id": resume.id,
-        "match_score": result["match_score"],
-        "matched_skills": result["matched_skills"],
-        "missing_skills": result["missing_skills"],
-        "recommendation": result["recommendation"]
-    }
-    # =========================================================
-# AI JOB MATCHING
-# =========================================================
-
-@app.get(
-    "/jobs/{job_id}/match"
-)
+@app.get("/jobs/{job_id}/match", response_model=JobMatchResponse)
 def match_job_with_resume(
     job_id: int,
     resume_id: int | None = None,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(
-        get_current_user
-    )
+    current_user_id: int = Depends(get_current_user)
 ):
-
-    # -----------------------------------------------------
-    # Get job belonging to current user
-    # -----------------------------------------------------
-
-    job = (
-        db.query(Job)
-        .filter(
-            Job.id == job_id,
-            Job.user_id == current_user_id
-        )
-        .first()
-    )
-
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.user_id == current_user_id
+    ).first()
     if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
 
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found"
-        )
-
-    # -----------------------------------------------------
-    # Get resume
-    # -----------------------------------------------------
-
-    resume_query = (
-        db.query(Resume)
-        .filter(
-            Resume.user_id == current_user_id
-        )
-    )
-
+    resume_query = db.query(Resume).filter(Resume.user_id == current_user_id)
     if resume_id is not None:
-
-        resume_query = resume_query.filter(
-            Resume.id == resume_id
-        )
-
+        resume_query = resume_query.filter(Resume.id == resume_id)
     else:
-
-        resume_query = resume_query.order_by(
-            Resume.id.desc()
-        )
-
+        resume_query = resume_query.order_by(Resume.id.desc())
     resume = resume_query.first()
-
     if not resume:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Resume not found"
-        )
-
-    # -----------------------------------------------------
-    # Check extracted text
-    # -----------------------------------------------------
-
+        raise HTTPException(status_code=404, detail="Resume not found")
     if not resume.extracted_text:
+        raise HTTPException(status_code=400, detail="Resume text is empty. Please upload a resume with readable text.")
 
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Resume text is empty. "
-                "Please upload a resume with readable text."
-            )
-        )
-
-    # -----------------------------------------------------
-    # Combine job information
-    # -----------------------------------------------------
-
-    job_text = " ".join(
-        filter(
-            None,
-            [
-                job.title,
-                job.company,
-                job.location,
-                job.description,
-                job.skills
-            ]
-        )
-    )
-
-    # -----------------------------------------------------
-    # Calculate matching score
-    # -----------------------------------------------------
-
-    result = calculate_match_score(
-        resume.extracted_text,
-        job_text
-    )
-
-    # -----------------------------------------------------
-    # Return result
-    # -----------------------------------------------------
-
+    job_text = " ".join(filter(None, [job.title, job.company, job.location, job.description, job.skills]))
+    result = calculate_match_score(resume.extracted_text, job_text)
     return {
         "job_id": job.id,
-        "job_title": job.title,
-        "company": job.company,
         "resume_id": resume.id,
-        "resume_filename": resume.filename,
         "match_score": result["score"],
-        "match_level": result["match_level"],
-        "matched_keywords": result[
-            "matched_keywords"
-        ],
-        "missing_keywords": result[
-            "missing_keywords"
-        ]
+        "matched_skills": result["matched_keywords"],
+        "missing_skills": result["missing_keywords"],
+        "recommendation": result["match_level"]
     }
+

@@ -4,7 +4,9 @@ from sqlalchemy import (
     String,
     DateTime,
     ForeignKey,
-    Text
+    Text,
+    Float,
+    JSON
 )
 
 from datetime import datetime, timezone
@@ -139,8 +141,22 @@ class Application(Base):
     status = Column(
         String(50),
         nullable=False,
-        default="APPLIED"
+        default="READY_FOR_REVIEW"
     )
+
+    resume_id = Column(Integer, ForeignKey("resumes.id"), nullable=True)
+    match_score = Column(Float, nullable=True)
+    matched_skills = Column(JSON, nullable=True)
+    missing_skills = Column(JSON, nullable=True)
+    recommendation = Column(Text, nullable=True)
+    source = Column(String(100), nullable=True)
+    match_category = Column(String(50), nullable=True)
+    application_priority = Column(String(50), nullable=True)
+    customized_resume = Column(Text, nullable=True)
+    cover_letter = Column(Text, nullable=True)
+    recruiter_message = Column(Text, nullable=True)
+    application_status = Column(String(50), nullable=True)
+    application_stage = Column(String(100), nullable=True)
 
     applied_at = Column(
         DateTime,
